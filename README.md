@@ -275,4 +275,4 @@ warns if you try.
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+Licensed under MIT License ([LICENSE](LICENSE)).
