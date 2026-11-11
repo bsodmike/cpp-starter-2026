@@ -1,0 +1,103 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VCPKG_DISABLE_METRICS: "1"
+
+jobs:
+  deep-checks:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: tsan
+            preset: ci-linux-tsan
+          - name: full-tidy
+            preset: ci-linux-clang
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select the pinned toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ninja-build mold
+          clang_major="$(./scripts/tool-version.sh clang)"
+          clang_major="${clang_major%%.*}"
+          sudo apt-get install -y \
+            "clang-${clang_major}" "clang-tidy-${clang_major}" \
+            "libc++-${clang_major}-dev" "libc++abi-${clang_major}-dev"
+          sudo update-alternatives --install /usr/bin/clang clang "/usr/bin/clang-${clang_major}" 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ "/usr/bin/clang++-${clang_major}" 100
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy "/usr/bin/clang-tidy-${clang_major}" 100
+
+      - name: Check out vcpkg at the pinned baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+          git -C "$HOME/vcpkg" checkout --detach "$(./scripts/tool-version.sh vcpkg)"
+          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
+
+      - name: Build and test
+        run: cmake --workflow --preset ${{ matrix.preset }}
+
+      - name: Full clang-tidy over the whole tree
+        if: matrix.name == 'full-tidy'
+        run: |
+          run-clang-tidy -p "build/${{ matrix.preset }}" -quiet \
+            $(find src app tests -name '*.cpp' -not -path 'tests/consumer/*')
+
+  newest-compilers:
+    name: compiler pre-releases (non-blocking)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    # Informational only: this job tracks unreleased compilers so upgrades are
+    # never a surprise, and must not gate merges.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install the newest LLVM from apt.llvm.org
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ninja-build mold lsb-release software-properties-common gnupg
+          # This job exists to track compilers newer than the runner images
+          # carry, so here the upstream repository is the point.
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh all
+          newest=$(ls /usr/bin/clang++-* | sed 's|.*clang++-||' | sort -n | tail -1)
+          sudo apt-get install -y "libc++-${newest}-dev" "libc++abi-${newest}-dev" || true
+          sudo update-alternatives --install /usr/bin/clang++ clang++ "/usr/bin/clang++-${newest}" 100
+          sudo update-alternatives --install /usr/bin/clang clang "/usr/bin/clang-${newest}" 100
+          clang++ --version
+
+      - name: Check out vcpkg at the pinned baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+          git -C "$HOME/vcpkg" checkout --detach "$(./scripts/tool-version.sh vcpkg)"
+          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
+
+      - name: Build against the newest Clang
+        run: cmake --workflow --preset ci-linux-clang

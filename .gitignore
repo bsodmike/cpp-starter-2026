@@ -1,0 +1,30 @@
+# Build trees (CMakePresets.json puts every preset under build/)
+/build/
+/out/
+
+# Personal preset overrides
+CMakeUserPresets.json
+
+# vcpkg manifest-mode install tree
+/vcpkg_installed/
+
+# Tooling caches
+/.cache/
+compile_commands.json
+.ccache/
+
+# Coverage and profiling output
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+/coverage/
+
+# Editor and OS noise
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+.DS_Store
+*.swp

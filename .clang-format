@@ -1,0 +1,28 @@
+# clang-format 23 (pinned in .tool-versions). Google style with a 100-column
+# limit; the include categories keep acme/ headers first, then other libraries,
+# then the standard library.
+---
+Language: Cpp
+BasedOnStyle: Google
+Standard: c++20
+ColumnLimit: 100
+IndentWidth: 2
+AccessModifierOffset: -2
+PointerAlignment: Left
+DerivePointerAlignment: false
+AllowShortFunctionsOnASingleLine: Empty
+AlwaysBreakTemplateDeclarations: Yes
+FixNamespaceComments: true
+SeparateDefinitionBlocks: Always
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<acme/'
+    Priority: 1
+  - Regex: '^"'
+    Priority: 2
+  - Regex: '^<(gtest|gmock|benchmark)/'
+    Priority: 3
+  - Regex: '^<[a-z_]+>$'
+    Priority: 5
+  - Regex: '.*'
+    Priority: 4

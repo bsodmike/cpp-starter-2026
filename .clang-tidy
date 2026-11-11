@@ -1,0 +1,70 @@
+# clang-tidy 23 (pinned in .tool-versions). The check groups come from the PRD
+# quality-gate table; every exclusion below carries its reason, and any new one
+# needs the same.
+---
+Checks: >
+  bugprone-*,
+  cert-*,
+  concurrency-*,
+  cppcoreguidelines-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -misc-include-cleaner,
+  -misc-non-private-member-variables-in-classes,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  -portability-avoid-pragma-once,
+  -readability-magic-numbers
+
+# Rationale for each exclusion, kept next to the list so review can challenge it:
+#   bugprone-easily-swappable-parameters   Fires on every (string_view, char)
+#                                          pair; too noisy to be actionable.
+#   cppcoreguidelines-avoid-magic-numbers  Duplicates readability-magic-numbers.
+#   ...-pro-bounds-avoid-unchecked-access   Fires on every operator[]; the
+#                                          project has no gsl::at, and bounds
+#                                          are checked at runtime instead by the
+#                                          library hardening in Hardening.cmake.
+#   ...-pro-bounds-pointer-arithmetic      std::from_chars requires begin/end
+#                                          pointer arithmetic.
+#   ...-pro-type-reinterpret-cast          Needed for byte-level interop; each
+#                                          use still needs a local NOLINT.
+#   portability-avoid-pragma-once          All four supported compilers honour
+#                                          #pragma once; include guards would
+#                                          add noise for no portability gain.
+#   misc-include-cleaner                   Disagrees with IWYU on standard
+#                                          library transitive includes.
+#   ...-non-private-member-variables...    Plain aggregates such as version_info
+#                                          are intentional.
+#   modernize-use-trailing-return-type     Style choice; conflicts with the
+#                                          leading-return-type house style.
+#   readability-identifier-length          Rejects conventional short names
+#                                          such as `i`, `c`, `os`.
+#   readability-magic-numbers              Unactionable in tests.
+
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*/(src|app|tests|benchmarks)/.*\.(hpp|h)$'
+FormatStyle: file
+
+CheckOptions:
+  readability-identifier-naming.NamespaceCase: lower_case
+  readability-identifier-naming.ClassCase: lower_case
+  readability-identifier-naming.StructCase: lower_case
+  readability-identifier-naming.FunctionCase: lower_case
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.ParameterCase: lower_case
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.PrivateMemberSuffix: _
+  readability-identifier-naming.EnumCase: lower_case
+  readability-identifier-naming.EnumConstantCase: lower_case
+  readability-identifier-naming.ConstexprVariableCase: lower_case
+  readability-identifier-naming.GlobalConstantCase: lower_case
+  readability-identifier-naming.TypeAliasCase: lower_case
+  readability-implicit-bool-conversion.AllowPointerConditions: true

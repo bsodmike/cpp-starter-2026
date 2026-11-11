@@ -1,0 +1,393 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 30,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/build/${presetName}/stage",
+      "cacheVariables": {
+        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_CXX_STANDARD_REQUIRED": "ON",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "vcpkg",
+      "hidden": true,
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "VCPKG_MANIFEST_FEATURES": "tests"
+      }
+    },
+    {
+      "name": "debug-strict",
+      "hidden": true,
+      "inherits": [
+        "base",
+        "vcpkg"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ACME_BUILD_TESTS": "ON",
+        "ACME_ENABLE_SANITIZERS": "ON",
+        "ACME_SANITIZER_SELFTEST": "ON",
+        "ACME_ENABLE_LIBRARY_HARDENING": "ON"
+      }
+    },
+    {
+      "name": "ci",
+      "hidden": true,
+      "inherits": "debug-strict",
+      "cacheVariables": {
+        "ACME_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "dev",
+      "displayName": "Debug with ASan + UBSan (host default compiler)",
+      "inherits": "debug-strict"
+    },
+    {
+      "name": "dev-clang",
+      "displayName": "Debug with ASan + UBSan, Clang and libc++",
+      "inherits": "debug-strict",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_FLAGS": "-stdlib=libc++"
+      }
+    },
+    {
+      "name": "ci-linux-gcc",
+      "displayName": "CI: Linux, GCC, coverage",
+      "inherits": "ci",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++",
+        "ACME_ENABLE_COVERAGE": "ON"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "ci-linux-clang",
+      "displayName": "CI: Linux, Clang and libc++",
+      "inherits": "ci",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_FLAGS": "-stdlib=libc++"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "ci-linux-tsan",
+      "displayName": "CI nightly: Linux, Clang, ThreadSanitizer",
+      "inherits": "ci",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "ACME_ENABLE_SANITIZERS": "OFF",
+        "ACME_SANITIZER_SELFTEST": "OFF",
+        "ACME_ENABLE_TSAN": "ON"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "ci-macos",
+      "displayName": "CI: macOS, Apple Clang",
+      "inherits": "ci",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "ci-windows",
+      "displayName": "CI: Windows, MSVC",
+      "inherits": "ci",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "RelWithDebInfo with hardening and LTO",
+      "inherits": [
+        "base",
+        "vcpkg"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "ACME_BUILD_TESTS": "ON",
+        "ACME_ENABLE_SANITIZERS": "OFF",
+        "ACME_ENABLE_HARDENING": "ON",
+        "ACME_ENABLE_LIBRARY_HARDENING": "ON",
+        "ACME_ENABLE_IPO": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev"
+    },
+    {
+      "name": "dev-clang",
+      "configurePreset": "dev-clang"
+    },
+    {
+      "name": "ci-linux-gcc",
+      "configurePreset": "ci-linux-gcc"
+    },
+    {
+      "name": "ci-linux-clang",
+      "configurePreset": "ci-linux-clang"
+    },
+    {
+      "name": "ci-linux-tsan",
+      "configurePreset": "ci-linux-tsan"
+    },
+    {
+      "name": "ci-macos",
+      "configurePreset": "ci-macos"
+    },
+    {
+      "name": "ci-windows",
+      "configurePreset": "ci-windows"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test-base",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true,
+        "shortProgress": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": false,
+        "jobs": 0
+      }
+    },
+    {
+      "name": "dev",
+      "inherits": "test-base",
+      "configurePreset": "dev"
+    },
+    {
+      "name": "dev-clang",
+      "inherits": "test-base",
+      "configurePreset": "dev-clang"
+    },
+    {
+      "name": "ci-linux-gcc",
+      "inherits": "test-base",
+      "configurePreset": "ci-linux-gcc"
+    },
+    {
+      "name": "ci-linux-clang",
+      "inherits": "test-base",
+      "configurePreset": "ci-linux-clang"
+    },
+    {
+      "name": "ci-linux-tsan",
+      "inherits": "test-base",
+      "configurePreset": "ci-linux-tsan"
+    },
+    {
+      "name": "ci-macos",
+      "inherits": "test-base",
+      "configurePreset": "ci-macos"
+    },
+    {
+      "name": "ci-windows",
+      "inherits": "test-base",
+      "configurePreset": "ci-windows"
+    },
+    {
+      "name": "release",
+      "inherits": "test-base",
+      "configurePreset": "release"
+    }
+  ],
+  "packagePresets": [
+    {
+      "name": "release",
+      "configurePreset": "release"
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "dev",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "dev"
+        },
+        {
+          "type": "build",
+          "name": "dev"
+        },
+        {
+          "type": "test",
+          "name": "dev"
+        }
+      ]
+    },
+    {
+      "name": "dev-clang",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "dev-clang"
+        },
+        {
+          "type": "build",
+          "name": "dev-clang"
+        },
+        {
+          "type": "test",
+          "name": "dev-clang"
+        }
+      ]
+    },
+    {
+      "name": "ci-linux-gcc",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "ci-linux-gcc"
+        },
+        {
+          "type": "build",
+          "name": "ci-linux-gcc"
+        },
+        {
+          "type": "test",
+          "name": "ci-linux-gcc"
+        }
+      ]
+    },
+    {
+      "name": "ci-linux-clang",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "ci-linux-clang"
+        },
+        {
+          "type": "build",
+          "name": "ci-linux-clang"
+        },
+        {
+          "type": "test",
+          "name": "ci-linux-clang"
+        }
+      ]
+    },
+    {
+      "name": "ci-linux-tsan",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "ci-linux-tsan"
+        },
+        {
+          "type": "build",
+          "name": "ci-linux-tsan"
+        },
+        {
+          "type": "test",
+          "name": "ci-linux-tsan"
+        }
+      ]
+    },
+    {
+      "name": "ci-macos",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "ci-macos"
+        },
+        {
+          "type": "build",
+          "name": "ci-macos"
+        },
+        {
+          "type": "test",
+          "name": "ci-macos"
+        }
+      ]
+    },
+    {
+      "name": "ci-windows",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "ci-windows"
+        },
+        {
+          "type": "build",
+          "name": "ci-windows"
+        },
+        {
+          "type": "test",
+          "name": "ci-windows"
+        }
+      ]
+    },
+    {
+      "name": "release",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "release"
+        },
+        {
+          "type": "build",
+          "name": "release"
+        },
+        {
+          "type": "test",
+          "name": "release"
+        },
+        {
+          "type": "package",
+          "name": "release"
+        }
+      ]
+    }
+  ]
+}

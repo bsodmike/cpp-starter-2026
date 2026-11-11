@@ -1,0 +1,15 @@
+# Inherits the root .clang-tidy and relaxes checks that only make sense for
+# production code. Scoped to tests/ so production code keeps the full set.
+---
+InheritParentConfig: true
+Checks: >
+  -bugprone-exception-escape,
+  -cert-err58-cpp
+
+# Rationale:
+#   bugprone-exception-escape  Test and self-test mains use iostreams and
+#                              containers that may throw, and a throwing test
+#                              main is a test failure, not a defect. The
+#                              sanitizer self-tests terminate on purpose.
+#   cert-err58-cpp             GoogleTest's TEST() macros create static objects
+#                              whose constructors can throw by design.

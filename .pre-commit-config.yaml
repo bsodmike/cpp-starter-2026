@@ -1,0 +1,45 @@
+# Local hooks on purpose: the versions must match .tool-versions and CI, so the
+# tools come from the devcontainer PATH rather than pre-commit's own mirrors.
+#   pip install pre-commit && pre-commit install
+default_install_hook_types: [pre-commit]
+fail_fast: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-json
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: clang-format
+        entry: clang-format -i
+        language: system
+        types_or: [c++, c]
+
+      # Fast tidy on staged files only. Needs a configured build tree for
+      # compile_commands.json; skips cleanly when there is not one yet.
+      - id: clang-tidy
+        name: clang-tidy (staged files)
+        entry: scripts/tidy-staged.sh
+        language: system
+        types_or: [c++]
+        pass_filenames: true
+        require_serial: true
+
+      - id: no-blanket-suppressions
+        name: reject blanket NOLINT
+        entry: scripts/check-suppressions.sh
+        language: system
+        pass_filenames: false
+        types_or: [c++]

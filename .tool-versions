@@ -1,0 +1,16 @@
+# Single source of truth for pinned tool versions. The devcontainer image and
+# the CI matrix both read this file; see scripts/tool-version.sh.
+# Format is asdf-compatible: "<tool> <version>", one per line.
+#
+# These are the newest versions available on the pinned GitHub-hosted runner
+# images (verified against actions/runner-images on 2026-11-11), which is what
+# keeps CI reproducible without building a compiler per job. The PRD recommends
+# GCC 16.2 and Clang 23.1; neither is on a hosted runner yet, and both are well
+# above the CI-enforced floors in cmake/CompilerFloor.cmake (GCC 14, Clang 21).
+# Raise these two lines as soon as the runner images carry them.
+cmake 4.4.5
+ninja 1.13.2
+gcc 15.2.0
+clang 22.1.2
+vcpkg 2ec0f1747d8186a5c9babe276e2ad57cd2b12d2a
+gtest 1.18.0

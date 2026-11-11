@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.gz  binary
+*.zip binary
+
+# Keep generated and vendored paths out of language statistics and diffs.
+docs/** linguist-documentation

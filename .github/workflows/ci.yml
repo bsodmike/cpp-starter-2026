@@ -1,0 +1,250 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Actions are pinned by commit SHA, not tag, per docs/dependencies.md.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VCPKG_DISABLE_METRICS: "1"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-gcc
+            runner: ubuntu-26.04
+            preset: ci-linux-gcc
+            coverage: true
+          - name: linux-clang
+            runner: ubuntu-26.04
+            preset: ci-linux-clang
+            tidy: true
+          # Proves the compiler floor from cmake/CompilerFloor.cmake still builds.
+          - name: linux-floor
+            runner: ubuntu-24.04
+            preset: ci-linux-gcc
+            floor: true
+          - name: macos
+            runner: macos-26
+            preset: ci-macos
+          - name: windows
+            runner: windows-2025-vs2026
+            preset: ci-windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Read pinned tool versions
+        id: tools
+        shell: bash
+        run: |
+          {
+            echo "cmake=$(./scripts/tool-version.sh cmake)"
+            echo "ninja=$(./scripts/tool-version.sh ninja)"
+            echo "gcc=$(./scripts/tool-version.sh gcc)"
+            echo "clang=$(./scripts/tool-version.sh clang)"
+            echo "vcpkg=$(./scripts/tool-version.sh vcpkg)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Select the pinned toolchain (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ninja-build mold
+
+          gcc_major="$(./scripts/tool-version.sh gcc)"
+          gcc_major="${gcc_major%%.*}"
+          clang_major="$(./scripts/tool-version.sh clang)"
+          clang_major="${clang_major%%.*}"
+
+          # The floor job deliberately builds with the oldest supported GCC.
+          if [ "${{ matrix.floor }}" = "true" ]; then
+            gcc_major=14
+          fi
+
+          # The runner images already carry these compilers, so select a version
+          # rather than adding a third-party apt repository per job.
+          case "${{ matrix.preset }}" in
+            ci-linux-gcc)
+              sudo apt-get install -y "g++-${gcc_major}"
+              sudo update-alternatives --install /usr/bin/gcc gcc "/usr/bin/gcc-${gcc_major}" 100
+              sudo update-alternatives --install /usr/bin/g++ g++ "/usr/bin/g++-${gcc_major}" 100
+              g++ --version
+              ;;
+            ci-linux-clang)
+              sudo apt-get install -y \
+                "clang-${clang_major}" "clang-tidy-${clang_major}" \
+                "libc++-${clang_major}-dev" "libc++abi-${clang_major}-dev"
+              sudo update-alternatives --install /usr/bin/clang clang "/usr/bin/clang-${clang_major}" 100
+              sudo update-alternatives --install /usr/bin/clang++ clang++ "/usr/bin/clang++-${clang_major}" 100
+              sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy "/usr/bin/clang-tidy-${clang_major}" 100
+              clang++ --version
+              ;;
+          esac
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Set up MSVC developer shell
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: x64
+
+      - name: Report toolchain versions
+        shell: bash
+        run: |
+          cmake --version
+          ninja --version
+
+      - name: Check out vcpkg at the pinned baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+          git -C "$HOME/vcpkg" checkout --detach "${{ steps.tools.outputs.vcpkg }}"
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$HOME/vcpkg-cache" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/vcpkg-cache"
+
+      - name: Bootstrap vcpkg
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$VCPKG_ROOT/bootstrap-vcpkg.bat" -disableMetrics
+          else
+            "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+          fi
+
+      # Binary cache keyed on OS, compiler, preset and the manifest, so a
+      # dependency bump or a compiler change never reuses stale binaries.
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/vcpkg-cache
+          key: vcpkg-${{ matrix.name }}-${{ steps.tools.outputs.vcpkg }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ matrix.name }}-${{ steps.tools.outputs.vcpkg }}-
+
+      - name: Set up compiler cache
+        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+        with:
+          key: ${{ matrix.name }}-${{ matrix.preset }}
+          variant: ${{ runner.os == 'Windows' && 'sccache' || 'ccache' }}
+
+      - name: Configure, build and test
+        run: cmake --workflow --preset ${{ matrix.preset }}
+
+      - name: clang-tidy on changed files
+        if: matrix.tidy && github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=$(git merge-base "origin/${{ github.base_ref }}" HEAD)
+          mapfile -t files < <(git diff --name-only "$base" HEAD -- '*.cpp' '*.hpp' | grep -v '^tests/consumer/' || true)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No C++ files changed."
+            exit 0
+          fi
+          printf 'Linting %s file(s)\n' "${#files[@]}"
+          clang-tidy -p "build/${{ matrix.preset }}" --warnings-as-errors='*' "${files[@]}"
+
+      - name: Reject blanket NOLINT
+        if: runner.os == 'Linux'
+        run: ./scripts/check-suppressions.sh
+
+      - name: Coverage report
+        if: matrix.coverage
+        shell: bash
+        run: |
+          python3 -m pip install --upgrade gcovr
+          gcovr --root . --filter 'src/' --xml-pretty --output coverage.xml --print-summary
+
+      - name: Upload coverage
+        if: matrix.coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-${{ matrix.name }}
+          path: coverage.xml
+          if-no-files-found: error
+
+  install-consumer:
+    name: install + find_package
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
+      - name: Check out vcpkg at the pinned baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+          git -C "$HOME/vcpkg" checkout --detach "$(./scripts/tool-version.sh vcpkg)"
+          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
+
+      # The release preset, not a sanitizer preset: a package installed from a
+      # sanitized build is not linkable by consumers (see cmake/Install.cmake).
+      - name: Build and install the release preset
+        run: |
+          cmake --workflow --preset release
+          cmake --install build/release --prefix "$HOME/acme-install"
+
+      - name: Build the standalone consumer against the installed package
+        run: |
+          cmake -S tests/consumer -B build/consumer -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$HOME/acme-install"
+          cmake --build build/consumer
+          ctest --test-dir build/consumer --output-on-failure
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select the pinned clang-format
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang_major="$(./scripts/tool-version.sh clang)"
+          clang_major="${clang_major%%.*}"
+          sudo apt-get update
+          sudo apt-get install -y "clang-format-${clang_major}"
+          echo "CLANG_FORMAT=clang-format-${clang_major}" >> "$GITHUB_ENV"
+          "clang-format-${clang_major}" --version
+
+      - name: Check formatting
+        run: |
+          find src app tests benchmarks -name '*.cpp' -o -name '*.hpp' \
+            | xargs "$CLANG_FORMAT" --dry-run --Werror

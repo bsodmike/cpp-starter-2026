@@ -1,0 +1,8 @@
+# actionlint 1.7.12 ships a stale runner-label list that predates the
+# ubuntu-26.04 image (generally available, see actions/runner-images). Declaring
+# the labels here stops actionlint rejecting them; they are GitHub-hosted
+# runners, not self-hosted, and this is the only hook actionlint offers.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
+    - ubuntu-26.04-arm

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "acme",
+  "version": "0.1.0",
+  "description": "C++23 project skeleton: CMake presets, vcpkg, sanitizers, three-OS CI",
+  "license": "MIT",
+  "builtin-baseline": "2ec0f1747d8186a5c9babe276e2ad57cd2b12d2a",
+  "dependencies": [],
+  "features": {
+    "tests": {
+      "description": "Unit test suite",
+      "dependencies": [
+        {
+          "name": "gtest",
+          "version>=": "1.18.0"
+        }
+      ]
+    },
+    "benchmarks": {
+      "description": "Micro-benchmarks",
+      "dependencies": [
+        {
+          "name": "benchmark",
+          "version>=": "1.9.5"
+        }
+      ]
+    }
+  }
+}

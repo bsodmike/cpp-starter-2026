@@ -1,0 +1,16 @@
+# Coverage is report-only (PRD quality gates); gcov on GCC, source-based on Clang.
+function(acme_apply_coverage target)
+  if(NOT ACME_ENABLE_COVERAGE)
+    return()
+  endif()
+
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(${target} INTERFACE --coverage -fprofile-abs-path)
+    target_link_options(${target} INTERFACE --coverage)
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(${target} INTERFACE -fprofile-instr-generate -fcoverage-mapping)
+    target_link_options(${target} INTERFACE -fprofile-instr-generate)
+  else()
+    message(WARNING "Coverage requested but unsupported for ${CMAKE_CXX_COMPILER_ID}; ignoring.")
+  endif()
+endfunction()

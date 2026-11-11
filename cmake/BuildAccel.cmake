@@ -1,0 +1,37 @@
+# Compiler cache and fast linker. Both are optional accelerators, so they are
+# probed rather than named in the presets: a preset that hard-codes ccache or
+# mold breaks the "fresh clone, one command" promise on a machine without them.
+function(acme_setup_build_accel)
+  if(ACME_USE_COMPILER_CACHE AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+    foreach(candidate ccache sccache)
+      find_program(ACME_COMPILER_CACHE ${candidate})
+      if(ACME_COMPILER_CACHE)
+        set(CMAKE_CXX_COMPILER_LAUNCHER "${ACME_COMPILER_CACHE}" PARENT_SCOPE)
+        message(STATUS "Compiler cache: ${ACME_COMPILER_CACHE}")
+        break()
+      endif()
+    endforeach()
+  endif()
+
+  if(ACME_USE_FAST_LINKER AND NOT CMAKE_LINKER_TYPE)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      set(candidates MOLD LLD)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+      set(candidates LLD)
+    else()
+      # Apple's ld64 is already fast and lld is not a supported replacement.
+      set(candidates "")
+    endif()
+
+    include(CheckLinkerFlag)
+    foreach(type ${candidates})
+      string(TOLOWER ${type} binary)
+      find_program(ACME_LINKER_${type} ${binary})
+      if(ACME_LINKER_${type})
+        set(CMAKE_LINKER_TYPE ${type} PARENT_SCOPE)
+        message(STATUS "Linker: ${type} (${ACME_LINKER_${type}})")
+        break()
+      endif()
+    endforeach()
+  endif()
+endfunction()
