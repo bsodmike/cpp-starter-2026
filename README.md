@@ -6,6 +6,17 @@ clang-tidy, and a five-job CI matrix across Linux, macOS and Windows.
 [![CI](https://github.com/inertialbox/experiment-cpp-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/inertialbox/experiment-cpp-starter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+## Why create a boilerplate in 2026?
+
+This is based on a PR I came up with, and there's no time better to learn, hence we are here, or at least I am.
+
+I wanted a starting point that I can discuss with C/C++ veterans, and ultimately shape this into being a simple enough starting point, but with starting off in a potentially _bad_ way, if there is a such a thing.
+
+Critique and feedback's always great to hear, so feel free to open an issue if you find this lacking or entirely heading in the wrong direction.
+
+- Is anything missing?
+- Should some aspects be left optional, may be we have an install type menu allowing a user piecemeal aspects of their build?
+
 ## Getting started
 
 Two supported ways in. The devcontainer is the shortest path and matches CI
@@ -157,7 +168,7 @@ CMake Error: CMAKE_CXX_COMPILER not set, after EnableLanguage
 ```
 
 Once the toolchain file loads, both disappear. Note that you never need to be
-*inside* the vcpkg clone: `VCPKG_ROOT` is how CMake finds it from anywhere.
+_inside_ the vcpkg clone: `VCPKG_ROOT` is how CMake finds it from anywhere.
 
 **`Bootstrapping vcpkg before install - failed`**
 
@@ -179,24 +190,24 @@ below the floor, so treat it as a stopgap rather than a setting to keep.
 
 ## What you get
 
-| Target | Kind | Notes |
-| --- | --- | --- |
-| `acme::core` | static library | Public headers under `src/core/include/acme/core/` |
-| `acme` (`acme_app`) | executable | Sums its integer arguments; the worked example |
-| `acme_core_test` | GoogleTest binary | One test binary per library |
-| `acme::options` | interface | Public usage requirements, exported to consumers |
-| `acme::build_options` | interface | Warnings, sanitizers, coverage; build-tree only |
+| Target                | Kind              | Notes                                              |
+| --------------------- | ----------------- | -------------------------------------------------- |
+| `acme::core`          | static library    | Public headers under `src/core/include/acme/core/` |
+| `acme` (`acme_app`)   | executable        | Sums its integer arguments; the worked example     |
+| `acme_core_test`      | GoogleTest binary | One test binary per library                        |
+| `acme::options`       | interface         | Public usage requirements, exported to consumers   |
+| `acme::build_options` | interface         | Warnings, sanitizers, coverage; build-tree only    |
 
 ## Presets
 
 `cmake --list-presets` shows them all. The ones you will use:
 
-| Preset | Build type | What it adds |
-| --- | --- | --- |
-| `dev` | Debug | ASan + UBSan, library hardening, sanitizer self-tests |
-| `dev-clang` | Debug | As `dev`, with Clang and libc++ |
-| `release` | RelWithDebInfo | OpenSSF hardening flags, LTO on executables, no sanitizers |
-| `ci-*` | Debug | The `dev` set plus warnings-as-errors; one per CI job |
+| Preset      | Build type     | What it adds                                               |
+| ----------- | -------------- | ---------------------------------------------------------- |
+| `dev`       | Debug          | ASan + UBSan, library hardening, sanitizer self-tests      |
+| `dev-clang` | Debug          | As `dev`, with Clang and libc++                            |
+| `release`   | RelWithDebInfo | OpenSSF hardening flags, LTO on executables, no sanitizers |
+| `ci-*`      | Debug          | The `dev` set plus warnings-as-errors; one per CI job      |
 
 Each has matching build, test and workflow presets, so
 `cmake --workflow --preset <name>` always works. Personal overrides belong in
@@ -223,20 +234,20 @@ docs/                     PRD, ADRs, dependency allowlist
 Every option is prefixed `ACME_` and defaults to a developer-friendly value only
 when ACME is the top-level project.
 
-| Option | Default | Purpose |
-| --- | --- | --- |
-| `ACME_BUILD_TESTS` | on when top-level | Build the test suite |
-| `ACME_BUILD_BENCHMARKS` | `OFF` | Build the benchmarks |
-| `ACME_ENABLE_SANITIZERS` | `OFF` | ASan + UBSan |
-| `ACME_ENABLE_TSAN` | `OFF` | ThreadSanitizer; excludes ASan |
-| `ACME_ENABLE_HARDENING` | `OFF` | OpenSSF release hardening flags |
-| `ACME_ENABLE_LIBRARY_HARDENING` | on when top-level | Standard-library assertions |
-| `ACME_WARNINGS_AS_ERRORS` | `OFF` | `-Werror` / `/WX`; CI turns this on |
-| `ACME_ENABLE_COVERAGE` | `OFF` | gcov or source-based coverage |
-| `ACME_ENABLE_IPO` | `OFF` | LTO, applied to executables only |
-| `ACME_ENABLE_CXX26` | `OFF` | Opt into C++26 for this build |
-| `ACME_SANITIZER_SELFTEST` | `OFF` | Build the deliberate-defect binaries |
-| `ACME_ALLOW_UNSUPPORTED_COMPILER` | `OFF` | Bypass the compiler floor check |
+| Option                            | Default           | Purpose                              |
+| --------------------------------- | ----------------- | ------------------------------------ |
+| `ACME_BUILD_TESTS`                | on when top-level | Build the test suite                 |
+| `ACME_BUILD_BENCHMARKS`           | `OFF`             | Build the benchmarks                 |
+| `ACME_ENABLE_SANITIZERS`          | `OFF`             | ASan + UBSan                         |
+| `ACME_ENABLE_TSAN`                | `OFF`             | ThreadSanitizer; excludes ASan       |
+| `ACME_ENABLE_HARDENING`           | `OFF`             | OpenSSF release hardening flags      |
+| `ACME_ENABLE_LIBRARY_HARDENING`   | on when top-level | Standard-library assertions          |
+| `ACME_WARNINGS_AS_ERRORS`         | `OFF`             | `-Werror` / `/WX`; CI turns this on  |
+| `ACME_ENABLE_COVERAGE`            | `OFF`             | gcov or source-based coverage        |
+| `ACME_ENABLE_IPO`                 | `OFF`             | LTO, applied to executables only     |
+| `ACME_ENABLE_CXX26`               | `OFF`             | Opt into C++26 for this build        |
+| `ACME_SANITIZER_SELFTEST`         | `OFF`             | Build the deliberate-defect binaries |
+| `ACME_ALLOW_UNSUPPORTED_COMPILER` | `OFF`             | Bypass the compiler floor check      |
 
 ## Using ACME from another project
 
