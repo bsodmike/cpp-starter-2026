@@ -2,18 +2,17 @@
 
 ## Getting set up
 
-The devcontainer is the supported path and carries every pinned tool:
+[The README](README.md#getting-started) covers both supported ways in: the
+devcontainer, which carries every pinned tool and matches CI, or a native
+toolchain. Pick either; the rest of this document assumes only that
+`cmake --workflow --preset dev` works.
 
-```sh
-# VS Code: "Reopen in Container", or Codespaces
-cmake --workflow --preset dev
-```
+`scripts/tool-version.sh <tool>` prints a pin from
+[.tool-versions](.tool-versions), and is what CI and the devcontainer both read,
+so nothing drifts. Never hard-code a tool version anywhere else.
 
-Without the container, install the versions in [.tool-versions](.tool-versions)
-and export `VCPKG_ROOT`. `scripts/tool-version.sh <tool>` prints a pin, and is
-what CI and the devcontainer read, so nothing drifts.
-
-Install the git hooks once:
+Install the git hooks once, in whichever environment you commit from. The
+devcontainer does this for you:
 
 ```sh
 pip install pre-commit

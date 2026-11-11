@@ -265,7 +265,8 @@ nightly pre-release job uses `apt.llvm.org`, which is that job's purpose.
 - **Editors**: clangd reading `compile_commands.json` is the supported path for
   VS Code, Neovim, and CLion. Visual Studio 2026 opens the folder through
   `CMakePresets.json` directly.
-- **Onboarding**: the `README` quick start is exactly
+- **Onboarding**: the `README` "Getting started" section gives two routes in,
+  the devcontainer and a native toolchain, and both end at the same command,
   `cmake --workflow --preset dev`; `CONTRIBUTING.md` documents presets,
   pre-commit setup, where each flag belongs, and how to add a dependency.
 
