@@ -1,8 +1,15 @@
-# Compiler floors from the PRD toolchain table. CI pins exact versions via
-# .tool-versions; this check only stops builds below the supported floor.
+# Compiler floors. CI pins exact versions via .tool-versions; this check only
+# stops builds below the supported floor.
+#
+# AppleClang is versioned independently of Xcode, so an Xcode version is not a
+# usable floor here: Xcode 26.x reports AppleClang 21.0.0, tracking the upstream
+# LLVM release it is built from rather than the Xcode release it ships in. The
+# floor below is therefore chosen from library support instead - AppleClang 17
+# is the LLVM 17 era, by which libc++ has both <expected> and <format>, the two
+# C++23 library features acme::core depends on.
 set(ACME_FLOOR_GCC 14)
 set(ACME_FLOOR_CLANG 21)
-set(ACME_FLOOR_APPLECLANG 26.4)
+set(ACME_FLOOR_APPLECLANG 17.0)
 set(ACME_FLOOR_MSVC 19.50)
 
 function(acme_check_compiler_floor)

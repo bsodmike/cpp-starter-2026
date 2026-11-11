@@ -87,7 +87,7 @@ to the build-only options target and so can never reach a public header.
 | Language | C++23 | C++23 | `CMAKE_CXX_STANDARD 23`, `CMAKE_CXX_STANDARD_REQUIRED ON`, `CMAKE_CXX_EXTENSIONS OFF`, plus `cxx_std_23` on `acme::options` |
 | [GCC](https://phoronix.com/news/GCC-16.2-Released) | 14 | **15.2.0** | Newest on `ubuntu-26.04`. GCC 16.2 exists but is not on a hosted runner; GCC 16 defaults to gnu++20, so always pin `-std` |
 | [Clang / LLVM](https://www.phoronix.com/news/LLVM-23.1-Released) | 21 | **22.1.2** | Newest on `ubuntu-26.04`. Also the source of clang-format, clang-tidy, clangd. 23.1.5 is current upstream |
-| Apple Clang | Xcode 26.4 | Xcode 26.6 (runner default) | libc++ now requires AppleClang 26.4+; `macos-26` offers 26.3 to 26.6 |
+| Apple Clang | **AppleClang 17.0** | Xcode 26.x (AppleClang 21.0) | Apple Clang versions do not track Xcode versions: Xcode 26.x reports AppleClang 21.0.0, so an Xcode-numbered floor is unusable. `macos-26` offers Xcode 26.3 to 26.6 |
 | [MSVC](https://learn.microsoft.com/cpp/overview/compiler-versions) | 14.50 (LTS to Nov 2028) | VS 2026 18.11 | Requires the `windows-2025-vs2026` runner label; see Amendments |
 | [CMake](https://www.kitware.com/cmake-4-4-1-available-for-download/) | 3.30 | **4.4.5** | `cmake_minimum_required(VERSION 3.30...4.4)` |
 | Generator | Ninja 1.11 | **1.13.2** | Ninja Multi-Config optional for IDE users |
@@ -313,8 +313,9 @@ status as of 2026-11-11 is noted per item; see
 [Verification status](#verification-status).
 
 - [x] Fresh clone + `cmake --workflow --preset dev` passes with no manual steps
-      beyond installing the pinned tools. _Verified on Linux arm64 with Clang
-      23.1.5 and libc++; macOS and Windows are unverified locally and need the
+      beyond installing the pinned tools. _Verified on Linux arm64 (Clang 23.1.5
+      + libc++) and on macOS arm64 (Apple Clang 21.0.0, Xcode 26, Homebrew CMake
+      and Ninja, vcpkg manifest mode). Windows is still unverified and needs the
       first CI run._
 - [ ] All CI jobs are required checks and pass; warm-cache wall time under 15
       minutes. _Requires a push; no CI run has happened yet._
@@ -357,13 +358,20 @@ release archives:
 | `scripts/check-suppressions.sh` | Clean; rejects all four blanket forms tested |
 | `actionlint` | Clean across all four workflows, including its shellcheck pass |
 | Hardening probes | `-fcf-protection=full` correctly rejected on arm64, `-mbranch-protection=standard` accepted |
+| macOS, Apple Clang 21.0.0 (Xcode 26) | `cmake --workflow --preset dev` configures, builds and tests, including the ASan and UBSan self-tests |
+| vcpkg manifest mode, real run | `gtest:arm64-osx@1.18.0` installed from the pinned baseline and cached, on macOS |
 
-**Not verified here, and why:** the GCC path (host GCC is 12.2, below the floor);
-macOS and Windows (no runners); the devcontainer image (no Docker); vcpkg port
-installation (`codeload.github.com` is blocked in the authoring environment, so
-GoogleTest 1.18.0 was built from source and consumed through the same
-`find_package(GTest)` path vcpkg would satisfy); and every GitHub Actions
-workflow end to end.
+**Verified later, on a developer Mac:** the macOS path and vcpkg manifest mode.
+`cmake --workflow --preset dev` runs green with Apple Clang 21.0.0 under Xcode
+26, and vcpkg installed `gtest:arm64-osx@1.18.0` from the pinned baseline. That
+run is also what exposed the AppleClang floor bug in Amendment 10.
+
+**Still not verified:** the GCC path (the authoring host had GCC 12.2, below the
+floor); Windows and MSVC (no runner); the devcontainer image (no Docker
+available); and every GitHub Actions workflow end to end. In the authoring
+environment `codeload.github.com` was blocked, so GoogleTest was built from
+source there and consumed through the same `find_package(GTest)` path vcpkg
+satisfies; the macOS run has since exercised vcpkg itself.
 
 ## Milestones
 
@@ -445,7 +453,12 @@ something found during the build:
    configure time.
 9. **CI job count rose from five to seven**, adding the install-consumer and
    clang-format jobs that the acceptance criteria imply.
-10. **Warning and clang-tidy check lists extended** to what is actually
+10. **AppleClang floor corrected from 26.4 to 17.0.** The PRD stated the Apple
+    Clang floor as an Xcode version, but Apple Clang is versioned against the
+    upstream LLVM release it is built from: Xcode 26.x reports AppleClang
+    21.0.0. A floor of 26.4 rejected every Mac, which is how it was found. The
+    floor is now chosen from libc++ `<expected>` and `<format>` support.
+11. **Warning and clang-tidy check lists extended** to what is actually
     configured, and the GCC-only warnings separated, since Clang errors on
     `-Wnull-dereference`.
 

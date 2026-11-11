@@ -67,16 +67,40 @@ which provides MSVC, CMake and Ninja. Run the commands below from a
 **Developer Command Prompt** (or **Developer PowerShell**) so the MSVC
 environment is set.
 
-**Then, on every platform**, check out vcpkg at the pinned baseline:
+**Then, on every platform**, check out vcpkg at the pinned baseline. Run this
+from the project root, because `scripts/tool-version.sh` reads
+[.tool-versions](.tool-versions) to resolve the baseline commit:
 
 ```sh
 git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
 git -C ~/vcpkg checkout --detach "$(./scripts/tool-version.sh vcpkg)"
 ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics     # bootstrap-vcpkg.bat on Windows
-export VCPKG_ROOT=~/vcpkg                      # add to your shell profile
+export VCPKG_ROOT="$HOME/vcpkg"                # add to your shell profile
 ```
 
-And build:
+The `checkout --detach` is the part that matters: it pins vcpkg to the commit
+`builtin-baseline` in `vcpkg.json` names, so you resolve the same port versions
+as CI instead of whatever is on vcpkg's default branch today.
+
+In **fish**, the last two lines differ, since `(...)` is command substitution
+and `export` does not exist:
+
+```fish
+git -C ~/vcpkg checkout --detach (./scripts/tool-version.sh vcpkg)
+~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+set -Ux VCPKG_ROOT $HOME/vcpkg      # -Ux persists; use -x for this session only
+```
+
+Do not wrap the path in parentheses: `set -Ux VCPKG_ROOT ($HOME/vcpkg)` makes
+fish try to execute the directory.
+
+In **PowerShell**:
+
+```powershell
+$env:VCPKG_ROOT = "$HOME\vcpkg"
+```
+
+And build, from the project root:
 
 ```sh
 cmake --workflow --preset dev
@@ -92,10 +116,58 @@ expect a few minutes; later runs reuse the binary cache.
 `dev` uses whichever compiler is first on your `PATH`. To pick Clang with
 libc++ explicitly, use `dev-clang`.
 
+### Running the binary for the first time
+
+This basic demo will add numbers provided to it:
+
+```
+cmake --workflow --preset dev
+./build/dev/app/acme 3 4 9
+acme 0.1.0
+sum = 16
+
+# release build
+cmake --workflow --preset release
+./build/release/app/acme 1 2
+```
+
+### Common setup errors
+
+**`Could not read presets from <dir>: File not found: <dir>/CMakePresets.json`**
+
+You are not in the project root. `--preset` reads `CMakePresets.json` from the
+current directory and does not search parent directories the way git does, and
+the current directory is also what tells CMake which project to build. Run from
+the directory holding `CMakePresets.json`, or pass the source explicitly with
+`cmake -S /path/to/repo --workflow --preset dev`.
+
+**`Could not find toolchain file: "/scripts/buildsystems/vcpkg.cmake"`**
+
+`VCPKG_ROOT` is unset or empty in the shell running cmake; the leading `/` is
+the variable expanding to nothing. Set it as above. This commonly happens when
+launching from an IDE that does not inherit your shell profile, so set it in the
+IDE's environment or start the IDE from a terminal.
+
+This failure also produces two follow-on errors that are **not** separate
+problems and say nothing about your installation:
+
+```
+CMake Error: CMake was unable to find a build program corresponding to "Ninja".
+CMake Error: CMAKE_CXX_COMPILER not set, after EnableLanguage
+```
+
+Once the toolchain file loads, both disappear. Note that you never need to be
+*inside* the vcpkg clone: `VCPKG_ROOT` is how CMake finds it from anywhere.
+
+**`Bootstrapping vcpkg before install - failed`**
+
+The clone exists but was never bootstrapped. Run its `bootstrap-vcpkg.sh`
+(`.bat` on Windows) and check the log path the error names.
+
 ### If configure rejects your compiler
 
 The build enforces the floors in [cmake/CompilerFloor.cmake](cmake/CompilerFloor.cmake)
-(GCC 14, Clang 21, AppleClang 26.4, MSVC 19.50) and fails with a message naming
+(GCC 14, Clang 21, AppleClang 17.0, MSVC 19.50) and fails with a message naming
 the version it found. Install a newer compiler, or override it deliberately:
 
 ```sh
